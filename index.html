@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <!-- 强制QQ使用系统浏览器 -->
+    <script>
+        if (navigator.userAgent.match(/QQ\//i)) {
+            alert("请点击右上角，选择『在浏览器打开』");
+            window.location.href = "https://your-project.vercel.app"; // 重新触发HTTPS
+        }
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>跨浏览器表情捕捉器 😜</title>
+    <style>
+        /* 多浏览器兼容样式 */
+        body {
+            text-align: center;
+            font-family: Arial, "Microsoft YaHei", "PingFang SC", sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        #video {
+            -webkit-transform: scaleX(-1); /* Safari/Chrome */
+            transform: scaleX(-1);
+            max-width: 100%;
+            height: auto;
+            background: #000; /* 视频加载前的占位 */
+        }
+        #generatedLink {
+            display: block;
+            margin: 15px auto;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 5px;
+            max-width: 80%;
+            word-break: break-all;
+        }
+        .fun-frame {
+            border: 10px solid pink;
+            border-radius: 20px;
+            margin: 10px auto;
+            -webkit-filter: none; /* 旧版Safari兼容 */
+            filter: none; /* 初始状态禁用滤镜 */
+        }
+        @media (max-width: 768px) {
+            #video { width: 100% !important; }
+        }
+    </style>
+</head>
+<body>
+<h1>👻 捕捉好友的爆笑瞬间！</h1>
+
+<!-- 兼容性提示 -->
+<div id="compatWarning" style="display: none; color: red;">
+    <p>⚠️ 您的浏览器版本较低，部分功能可能受限</p>
+</div>
+
+<!-- 视频容器 -->
+<div id="videoContainer" style="display: none;">
+    <video id="video" width="640" height="480" playsinline autoplay muted class="fun-frame"></video>
+    <br>
+    <button id="effectBtn" style="font-size: 20px;">🎭 添加搞笑特效</button>
+</div>
+
+<script>
+    // ==================== 浏览器兼容处理 ====================
+    // 1. 特征检测
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+    // 2. 显示兼容性警告
+    if (!('mediaDevices' in navigator) || !('getUserMedia' in navigator.mediaDevices)) {
+        document.getElementById('compatWarning').style.display = 'block';
+    }
+
+    // ==================== 摄像头处理 ====================
+    function initCamera() {
+        // 多浏览器兼容的getUserMedia
+        const constraints = {
+            video: {
+                facingMode: 'user',
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            }
+        };
+
+        const legacyGetUserMedia = navigator.mediaDevices.getUserMedia ||
+            navigator.webkitGetUserMedia ||
+            navigator.mozGetUserMedia;
+
+        (legacyGetUserMedia.call(navigator.mediaDevices, constraints) ||
+            Promise.reject(new Error('getUserMedia not supported')))
+            .then(stream => {
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+                video.play(); // iOS需要显式调用play
+
+                // iOS自动播放处理
+                if (isIOS) {
+                    video.addEventListener('play', () => {
+                        document.getElementById('videoContainer').style.display = 'block';
+                    });
+                }
+            })
+            .catch(err => {
+                alert('需要摄像头权限才能玩耍哦~');
+                window.location.href = document.getElementById('redirectUrl').value;
+            });
+    }
+
+    // ==================== 特效系统 ====================
+    const funEffects = [
+        { filter: 'hue-rotate(90deg)', border: '20px solid #ff00ff' },
+        { filter: 'blur(5px) contrast(200%)', border: '15px dotted yellow' },
+        { filter: 'grayscale(100%)', border: '30px groove green' }
+    ];
+    let currentEffect = 0;
+
+    function addFunEffect() {
+        const container = document.getElementById('videoContainer');
+        const effect = funEffects[currentEffect % funEffects.length];
+
+        // 滤镜兼容处理
+        container.style.webkitFilter = effect.filter;
+        container.style.filter = effect.filter;
+        container.style.border = effect.border;
+
+        currentEffect++;
+    }
+
+    // ==================== 事件绑定 ====================
+    document.getElementById('effectBtn').addEventListener('click', addFunEffect);
+
+    // ==================== 初始化流程 ====================
+    window.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URL(window.location.href).searchParams;
+
+        if (urlParams.has('from')) {
+            // iOS需要用户交互才能启动摄像头
+            if (isIOS) {
+                document.body.addEventListener('click', initCamera, { once: true });
+                alert('请点击任意位置启动摄像头');
+            } else {
+                initCamera();
+            }
+        }
+    });
+
+    // ==================== 移动端优化 ====================
+    // 屏幕方向锁定（兼容处理）
+    if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('portrait').catch(() => {});
+    }
+
+    // 离开页面时释放摄像头
+    window.addEventListener('beforeunload', () => {
+        const video = document.getElementById('video');
+        if (video.srcObject) {
+            video.srcObject.getTracks().forEach(track => track.stop());
+        }
+    });
+</script>
+
+<!-- 生成链接部分 -->
+<hr>
+<h3>🔗 生成你的专属捕捉链接</h3>
+<input type="text" id="myid" placeholder="输入你的昵称">
+<button onclick="generateLink()">✨ 生成链接</button>
+<br>
+<div id="linkContainer" style="display: none;">
+    <p>请复制以下链接发送给好友：</p>
+    <a id="generatedLink" target="_blank"></a>
+</div>
+
+<script>
+    // ==================== 剪贴板兼容处理 ====================
+    function copyFallback(text) {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand('copy');
+            alert('链接已复制！');
+        } catch (err) {
+            alert('请手动复制链接');
+        }
+        document.body.removeChild(textarea);
+    }
+
+    function generateLink() {
+        const id = document.getElementById('myid').value;
+        if (!id) {
+            alert('请输入昵称！');
+            return;
+        }
+
+        // 生成标准URL
+        const baseUrl = window.location.href.split('?')[0];
+        const encodedId = encodeURIComponent(id);
+        const link = `${baseUrl}?from=${encodedId}`;
+
+        // 显示链接区域
+        const linkContainer = document.getElementById('linkContainer');
+        const linkElement = document.getElementById('generatedLink');
+        linkElement.href = link;
+        linkElement.textContent = link;
+        linkContainer.style.display = 'block';
+
+        // 兼容性复制功能
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(link).then(() => {
+                alert('链接已复制到剪贴板！');
+            }).catch(() => {
+                alert('请手动复制链接');
+            });
+        } else {
+            const textarea = document.createElement('textarea');
+            textarea.value = link;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            alert('链接已复制！');
+        }
+    }
+</script>
+</body>
+</html>
